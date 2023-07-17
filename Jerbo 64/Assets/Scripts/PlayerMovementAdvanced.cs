@@ -10,6 +10,7 @@ public class PlayerMovementAdvanced : MonoBehaviour
     public float sprintSpeed;
     public float slideSpeed;
     public float wallrunSpeed;
+    public float climbSpeed;
 
     private float desiredMoveSpeed;
     private float lastDesiredMoveSpeed;
@@ -38,13 +39,15 @@ public class PlayerMovementAdvanced : MonoBehaviour
     [Header("Ground Check")]
     public float playerHeight;
     public LayerMask whatIsGround;
-    bool grounded;
+    public bool grounded;
 
     [Header("Slope Handling")]
     public float maxSlopeAngle;
     private RaycastHit slopeHit;
     private bool exitingSlope;
     
+    [Header("References")]
+    public Climbing climbingScript;
 
     public Transform orientation;
 
@@ -61,6 +64,7 @@ public class PlayerMovementAdvanced : MonoBehaviour
         walking,
         sprinting,
         wallrunning,
+        climbing,
         crouching,
         sliding,
         air
@@ -68,6 +72,7 @@ public class PlayerMovementAdvanced : MonoBehaviour
 
     public bool sliding;
     public bool wallrunning;
+    public bool climbing;
 
     private void Start()
     {
@@ -131,6 +136,13 @@ public class PlayerMovementAdvanced : MonoBehaviour
 
     private void StateHandler()
     {
+        // Mode - Climbing
+        if(climbing)
+        {
+           state = MovementState.climbing;
+           desiredMoveSpeed = climbSpeed; 
+        }
+        
         //Mode - Wallrunning
         if (wallrunning)
         {
@@ -219,6 +231,8 @@ public class PlayerMovementAdvanced : MonoBehaviour
 
     private void MovePlayer()
     {
+        if(climbingScript.exitingWall) return;
+        
         // calculate movement direction
         moveDirection = orientation.forward * verticalInput + orientation.right * horizontalInput;
 
