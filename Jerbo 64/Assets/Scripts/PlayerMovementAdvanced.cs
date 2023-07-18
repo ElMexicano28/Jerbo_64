@@ -8,6 +8,8 @@ public class PlayerMovementAdvanced : MonoBehaviour
     private float moveSpeed;
     public float walkSpeed;
     public float sprintSpeed;
+    public float dashSpeed;
+    public float dashSpeedChangeFactor;
     public float slideSpeed;
     public float wallrunSpeed;
     public float climbSpeed;
@@ -17,6 +19,8 @@ public class PlayerMovementAdvanced : MonoBehaviour
 
     public float speedIncreaseMultiplier;
     public float slopeIncreaseMultiplier;
+    
+    public float maxYSpeed;
 
     public float groundDrag;
 
@@ -66,6 +70,7 @@ public class PlayerMovementAdvanced : MonoBehaviour
         wallrunning,
         climbing,
         crouching,
+        dashing,
         sliding,
         air
     }
@@ -73,6 +78,7 @@ public class PlayerMovementAdvanced : MonoBehaviour
     public bool sliding;
     public bool wallrunning;
     public bool climbing;
+    public bool dashing;
 
     private void Start()
     {
@@ -94,7 +100,7 @@ public class PlayerMovementAdvanced : MonoBehaviour
         StateHandler();
 
         // handle drag
-        if (grounded)
+        if (state == MovementState.walking || state == MovementState.sprinting || state == MovementState.crouching)
             rb.drag = groundDrag;
         else
             rb.drag = 0;
@@ -134,23 +140,34 @@ public class PlayerMovementAdvanced : MonoBehaviour
         }
     }
 
+    private MovementState lastState;
+    private bool keepMomentum;
+
     private void StateHandler()
     {
+        //Mode - Dashing
+        if(dashing)
+        {
+            state = MovementState.dashing;
+            desiredMoveSpeed = dashSpeed;
+            speedChangeFactor = dashSpeedChangeFactor;
+        }
+        
         // Mode - Climbing
-        if(climbing)
+        else if(climbing)
         {
            state = MovementState.climbing;
            desiredMoveSpeed = climbSpeed; 
         }
         
         //Mode - Wallrunning
-        if (wallrunning)
+        else if (wallrunning)
         {
             state = MovementState.wallrunning;
         }
         
         // Mode - Sliding
-        if (sliding)
+        else if (sliding)
         {
             state = MovementState.sliding;
 
@@ -186,6 +203,11 @@ public class PlayerMovementAdvanced : MonoBehaviour
         else
         {
             state = MovementState.air;
+
+            if(desiredMoveSpeed < sprintSpeed)
+                desiredMoveSpeed = walkSpeed;
+            else
+                desiredMoveSpeed = sprintSpeed;
         }
 
         // check if desiredMoveSpeed has changed drastically
@@ -199,9 +221,23 @@ public class PlayerMovementAdvanced : MonoBehaviour
             moveSpeed = desiredMoveSpeed;
         }
 
+        bool desiredMoveSpeedHasChanged = desiredMoveSpeed != lastDesiredMoveSpeed;
+        if(lastState == MovementState.dashing) keepMomentum = true;
+
+        if (keepMomentum)
+        {
+            StopAllCoroutines();
+            StartCoroutine(SmoothlyLerpMoveSpeed());
+        }
+        else
+        {
+            moveSpeed = desiredMoveSpeed;
+        }
         lastDesiredMoveSpeed = desiredMoveSpeed;
+        lastState = state;
     }
 
+    private float speedChangeFactor;
     private IEnumerator SmoothlyLerpMoveSpeed()
     {
         // smoothly lerp movementSpeed to desired value
@@ -231,6 +267,7 @@ public class PlayerMovementAdvanced : MonoBehaviour
 
     private void MovePlayer()
     {
+        if (state == MovementState.dashing) return;
         if(climbingScript.exitingWall) return;
         
         // calculate movement direction
@@ -278,6 +315,10 @@ public class PlayerMovementAdvanced : MonoBehaviour
                 rb.velocity = new Vector3(limitedVel.x, rb.velocity.y, limitedVel.z);
             }
         }
+
+        // limit y vel
+        if (maxYSpeed != 0 && rb.velocity.y > maxYSpeed)
+            rb.velocity = new Vector3(rb.velocity.x, maxYSpeed, rb.velocity.z);
     }
 
     private void Jump()
